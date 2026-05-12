@@ -102,19 +102,15 @@ export default function Home() {
 
       const payload = (await response.json()) as { data: GraphNode[] };
       setNodes(payload.data);
-      if (!fromId && payload.data.length > 0) {
-        setFromId(payload.data[0].id);
-      }
-      if (!toId && payload.data.length > 1) {
-        setToId(payload.data[1].id);
-      }
+      setFromId((current) => current || payload.data[0]?.id || "");
+      setToId((current) => current || payload.data[1]?.id || "");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load nodes";
       setNodeError(message);
     } finally {
       setIsLoadingNodes(false);
     }
-  }, [fromId, toId]);
+  }, []);
 
   const loadRelationships = useCallback(async () => {
     setIsLoadingRelationships(true);

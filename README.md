@@ -9,7 +9,7 @@ Neo4j Builder is a minimal Next.js app for creating and listing Neo4j nodes and 
 
 ## Setup
 
-Create `/home/runner/work/neo4jbuilder/neo4jbuilder/.env.local` with:
+Create `.env.local` in the project root with:
 
 ```bash
 NEO4J_URI=neo4j://localhost:7687
