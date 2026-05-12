@@ -98,6 +98,7 @@ function parseProperties(value: unknown): GraphProperties {
   }
 
   const entries = Object.entries(value);
+  const parsed: GraphProperties = {};
   for (const [key, propertyValue] of entries) {
     if (!IDENTIFIER_PATTERN.test(key)) {
       throw new ApiError(
@@ -114,9 +115,11 @@ function parseProperties(value: unknown): GraphProperties {
         "Property values must be string, number, boolean, null, or arrays of those values"
       );
     }
+
+    parsed[key] = propertyValue;
   }
 
-  return value;
+  return parsed;
 }
 
 function parseCreateNodePayload(value: unknown): CreateNodeRequest {

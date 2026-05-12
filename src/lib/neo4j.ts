@@ -20,7 +20,9 @@ function createDriver(): Driver {
   const username = getEnv("NEO4J_USERNAME");
   const password = getEnv("NEO4J_PASSWORD");
 
-  return neo4j.driver(uri, neo4j.auth.basic(username, password));
+  return neo4j.driver(uri, neo4j.auth.basic(username, password), {
+    disableLosslessIntegers: true,
+  });
 }
 
 export function getNeo4jDriver(): Driver {

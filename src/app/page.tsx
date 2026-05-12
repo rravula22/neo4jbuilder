@@ -2,13 +2,37 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-import type { CreateNodeRequest, CreateRelationshipRequest, ErrorResponse, GraphNode, GraphRelationship } from "@/types/graph";
+import type {
+  CreateNodeRequest,
+  CreateRelationshipRequest,
+  ErrorResponse,
+  GraphNode,
+  GraphProperties,
+  GraphPropertyValue,
+  GraphRelationship,
+} from "@/types/graph";
 
 function stringifyProperties(value: Record<string, unknown>): string {
   return JSON.stringify(value, null, 2);
 }
 
-function parsePropertiesInput(input: string): Record<string, unknown> {
+function isGraphPropertyValue(value: unknown): value is GraphPropertyValue {
+  if (value === null) {
+    return true;
+  }
+
+  if (["string", "number", "boolean"].includes(typeof value)) {
+    return true;
+  }
+
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  return value.every((item) => item === null || ["string", "number", "boolean"].includes(typeof item));
+}
+
+function parsePropertiesInput(input: string): GraphProperties {
   const trimmed = input.trim();
   if (!trimmed) {
     return {};
@@ -25,7 +49,16 @@ function parsePropertiesInput(input: string): Record<string, unknown> {
     throw new Error("Properties must be a JSON object");
   }
 
-  return parsed as Record<string, unknown>;
+  const objectEntries = Object.entries(parsed);
+  const properties: GraphProperties = {};
+  for (const [key, value] of objectEntries) {
+    if (!isGraphPropertyValue(value)) {
+      throw new Error("Property values must be string, number, boolean, null, or arrays of those values");
+    }
+    properties[key] = value;
+  }
+
+  return properties;
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
@@ -116,7 +149,7 @@ export default function Home() {
       return;
     }
 
-    let properties: Record<string, unknown>;
+    let properties: GraphProperties;
     try {
       properties = parsePropertiesInput(nodePropertiesInput);
     } catch (error) {
@@ -172,7 +205,7 @@ export default function Home() {
       return;
     }
 
-    let properties: Record<string, unknown>;
+    let properties: GraphProperties;
     try {
       properties = parsePropertiesInput(relationshipPropertiesInput);
     } catch (error) {
