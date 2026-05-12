@@ -1,6 +1,7 @@
 import type { GraphPropertyValue } from "@/types/graph";
 
-export const GRAPH_IDENTIFIER_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const MAX_IDENTIFIER_LENGTH = 64;
+export const GRAPH_IDENTIFIER_PATTERN = new RegExp(`^[A-Za-z][A-Za-z0-9_]{0,${MAX_IDENTIFIER_LENGTH - 1}}$`);
 
 export function isGraphPropertyValue(value: unknown): value is GraphPropertyValue {
   if (value === null) {

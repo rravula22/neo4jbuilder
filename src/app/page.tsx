@@ -12,6 +12,9 @@ import type {
   GraphRelationship,
 } from "@/types/graph";
 
+const DEFAULT_FROM_NODE_INDEX = 0;
+const DEFAULT_TO_NODE_INDEX = 1;
+
 function stringifyProperties(value: Record<string, unknown>): string {
   return JSON.stringify(value, null, 2);
 }
@@ -86,8 +89,8 @@ export default function Home() {
 
       const payload = (await response.json()) as { data: GraphNode[] };
       setNodes(payload.data);
-      setFromId((current) => current || payload.data[0]?.id || "");
-      setToId((current) => current || payload.data[1]?.id || "");
+      setFromId((current) => current || payload.data[DEFAULT_FROM_NODE_INDEX]?.id || "");
+      setToId((current) => current || payload.data[DEFAULT_TO_NODE_INDEX]?.id || "");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load nodes";
       setNodeError(message);
@@ -276,7 +279,7 @@ export default function Home() {
           <ul className="mt-4 space-y-2 text-sm">
             {nodes.map((node) => (
               <li className="rounded border border-slate-200 p-3" key={node.id}>
-                <div className="font-medium">{node.labels.join(":") || "(no label)"}</div>
+                <div className="font-medium">{node.labels.join(":") || "(unlabeled)"}</div>
                 <div className="mt-1 text-xs text-slate-500">id: {node.id}</div>
                 <pre className="mt-2 overflow-auto rounded bg-slate-50 p-2 text-xs">
                   {stringifyProperties(node.properties)}
