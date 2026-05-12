@@ -89,8 +89,11 @@ export default function Home() {
 
       const payload = (await response.json()) as { data: GraphNode[] };
       setNodes(payload.data);
-      setFromId((current) => current || payload.data[DEFAULT_FROM_NODE_INDEX]?.id || "");
-      setToId((current) => current || payload.data[DEFAULT_TO_NODE_INDEX]?.id || "");
+      const nodeIds = new Set(payload.data.map((node) => node.id));
+      setFromId((current) =>
+        current && nodeIds.has(current) ? current : payload.data[DEFAULT_FROM_NODE_INDEX]?.id || ""
+      );
+      setToId((current) => (current && nodeIds.has(current) ? current : payload.data[DEFAULT_TO_NODE_INDEX]?.id || ""));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load nodes";
       setNodeError(message);

@@ -102,5 +102,6 @@ export function parseCypherIdentifier(value: unknown, code: string, fieldLabel: 
 }
 
 export function toCypherIdentifier(identifier: string): string {
+  // Neo4j does not support query parameters for labels/relationship types, so validated identifiers are escaped and quoted.
   return `\`${identifier.replaceAll("`", "``")}\``;
 }
