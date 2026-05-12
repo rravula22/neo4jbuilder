@@ -2,34 +2,18 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { isGraphPropertyValue } from "@/lib/graph-validation";
 import type {
   CreateNodeRequest,
   CreateRelationshipRequest,
   ErrorResponse,
   GraphNode,
   GraphProperties,
-  GraphPropertyValue,
   GraphRelationship,
 } from "@/types/graph";
 
 function stringifyProperties(value: Record<string, unknown>): string {
   return JSON.stringify(value, null, 2);
-}
-
-function isGraphPropertyValue(value: unknown): value is GraphPropertyValue {
-  if (value === null) {
-    return true;
-  }
-
-  if (["string", "number", "boolean"].includes(typeof value)) {
-    return true;
-  }
-
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  return value.every((item) => item === null || ["string", "number", "boolean"].includes(typeof item));
 }
 
 function parsePropertiesInput(input: string): GraphProperties {

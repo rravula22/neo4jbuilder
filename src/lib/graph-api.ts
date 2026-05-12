@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
-import type { ErrorResponse, GraphProperties, GraphPropertyValue } from "@/types/graph";
-
-const IDENTIFIER_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+import { GRAPH_IDENTIFIER_PATTERN, isGraphPropertyValue } from "@/lib/graph-validation";
+import type { ErrorResponse, GraphProperties } from "@/types/graph";
 
 export class ApiError extends Error {
   code: string;
@@ -48,22 +47,6 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function isGraphPropertyValue(value: unknown): value is GraphPropertyValue {
-  if (value === null) {
-    return true;
-  }
-
-  if (["string", "number", "boolean"].includes(typeof value)) {
-    return true;
-  }
-
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  return value.every((item) => item === null || ["string", "number", "boolean"].includes(typeof item));
-}
-
 export function parseProperties(value: unknown): GraphProperties {
   if (value === undefined) {
     return {};
@@ -75,7 +58,7 @@ export function parseProperties(value: unknown): GraphProperties {
 
   const parsed: GraphProperties = {};
   for (const [key, propertyValue] of Object.entries(value)) {
-    if (!IDENTIFIER_PATTERN.test(key)) {
+    if (!GRAPH_IDENTIFIER_PATTERN.test(key)) {
       throw new ApiError(
         400,
         "INVALID_PROPERTIES",
@@ -107,7 +90,7 @@ export function parseCypherIdentifier(value: unknown, code: string, fieldLabel: 
     throw new ApiError(400, code, `${fieldLabel} is required`);
   }
 
-  if (!IDENTIFIER_PATTERN.test(trimmed)) {
+  if (!GRAPH_IDENTIFIER_PATTERN.test(trimmed)) {
     throw new ApiError(
       400,
       code,
