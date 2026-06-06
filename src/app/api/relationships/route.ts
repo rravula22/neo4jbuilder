@@ -18,6 +18,14 @@ function parseId(value: unknown, field: string): string {
   return trimmed;
 }
 
+function parseOptionalLabel(value: unknown, fieldLabel: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return parseCypherIdentifier(value, "INVALID_LABEL", fieldLabel);
+}
+
 function parseCreateRelationshipPayload(value: unknown): CreateRelationshipRequest {
   if (!isPlainObject(value)) {
     throw new ApiError(400, "INVALID_REQUEST", "Request body must be a JSON object");
@@ -26,6 +34,8 @@ function parseCreateRelationshipPayload(value: unknown): CreateRelationshipReque
   return {
     fromId: parseId(value.fromId, "fromId"),
     toId: parseId(value.toId, "toId"),
+    fromLabel: parseOptionalLabel(value.fromLabel, "fromLabel"),
+    toLabel: parseOptionalLabel(value.toLabel, "toLabel"),
     type: parseCypherIdentifier(value.type, "INVALID_TYPE", "Relationship type"),
     properties: parseProperties(value.properties),
   };
@@ -44,13 +54,24 @@ export async function POST(request: NextRequest) {
       throw new ApiError(400, "INVALID_JSON", "Request body must be valid JSON");
     }
 
-    const { fromId, toId, type, properties } = parseCreateRelationshipPayload(payload);
+    const { fromId, toId, fromLabel, toLabel, type, properties } = parseCreateRelationshipPayload(payload);
     const safeType = toCypherIdentifier(type);
+    const parsedProperties = properties ?? {};
+
+    const fromPattern = fromLabel
+      ? `(from:${toCypherIdentifier(fromLabel)} { id: $fromId })`
+      : "(from { id: $fromId })";
+    const toPattern = toLabel ? `(to:${toCypherIdentifier(toLabel)} { id: $toId })` : "(to { id: $toId })";
+
+    const hasProperties = Object.keys(parsedProperties).length > 0;
+    const query = hasProperties
+      ? `MATCH ${fromPattern}, ${toPattern} CREATE (from)-[r:${safeType}]->(to) SET r += $properties RETURN r`
+      : `MATCH ${fromPattern}, ${toPattern} CREATE (from)-[r:${safeType}]->(to) RETURN r`;
 
     const response: GenerateCypherResponse = {
       data: {
-        query: `MATCH (from), (to) WHERE from.id = $fromId AND to.id = $toId CREATE (from)-[r:${safeType}]->(to) SET r += $properties RETURN r`,
-        params: { fromId, toId, properties },
+        query,
+        params: hasProperties ? { fromId, toId, properties: parsedProperties } : { fromId, toId },
       },
     };
 

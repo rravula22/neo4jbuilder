@@ -31,11 +31,17 @@ export async function POST(request: NextRequest) {
 
     const { label, properties } = parseCreateNodePayload(payload);
     const safeLabel = toCypherIdentifier(label);
+    const parsedProperties = properties ?? {};
+
+    const hasProperties = Object.keys(parsedProperties).length > 0;
+    const query = hasProperties
+      ? `CREATE (n:${safeLabel}) SET n += $properties RETURN n`
+      : `CREATE (n:${safeLabel}) RETURN n`;
 
     const response: GenerateCypherResponse = {
       data: {
-        query: `CREATE (n:${safeLabel}) SET n += $properties RETURN n`,
-        params: { properties },
+        query,
+        params: hasProperties ? { properties: parsedProperties } : {},
       },
     };
 

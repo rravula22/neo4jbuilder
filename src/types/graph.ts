@@ -10,6 +10,8 @@ export interface CreateNodeRequest {
 export interface CreateRelationshipRequest {
   fromId: string;
   toId: string;
+  fromLabel?: string;
+  toLabel?: string;
   type: string;
   properties?: GraphProperties;
 }

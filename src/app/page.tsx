@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 
 import { isGraphPropertyValue } from "@/lib/graph-validation";
 import type {
@@ -66,6 +66,7 @@ async function readErrorMessage(response: Response): Promise<string> {
 
 export default function Home() {
   const [history, setHistory] = useState<QueryHistoryEntry[]>([]);
+  const nextHistoryId = useRef(1);
 
   const [nodeLabel, setNodeLabel] = useState("");
   const [nodePropertiesInput, setNodePropertiesInput] = useState("{}");
@@ -74,6 +75,8 @@ export default function Home() {
 
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
+  const [fromLabel, setFromLabel] = useState("");
+  const [toLabel, setToLabel] = useState("");
   const [relationshipType, setRelationshipType] = useState("");
   const [relationshipPropertiesInput, setRelationshipPropertiesInput] = useState("{}");
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
@@ -117,7 +120,7 @@ export default function Home() {
       const generated = (await response.json()) as GenerateCypherResponse;
       setHistory((previous) => [
         {
-          id: Date.now(),
+          id: nextHistoryId.current++,
           kind: "node",
           query: generated.data.query,
           params: generated.data.params,
@@ -138,7 +141,7 @@ export default function Home() {
     setRelationshipError(null);
 
     if (!fromId.trim() || !toId.trim()) {
-      setRelationshipError("fromId and toId are required");
+      setRelationshipError("From ID and To ID are required");
       return;
     }
 
@@ -161,6 +164,8 @@ export default function Home() {
       const payload: CreateRelationshipRequest = {
         fromId: fromId.trim(),
         toId: toId.trim(),
+        fromLabel: fromLabel.trim() || undefined,
+        toLabel: toLabel.trim() || undefined,
         type: trimmedType,
         properties,
       };
@@ -178,13 +183,17 @@ export default function Home() {
       const generated = (await response.json()) as GenerateCypherResponse;
       setHistory((previous) => [
         {
-          id: Date.now(),
+          id: nextHistoryId.current++,
           kind: "relationship",
           query: generated.data.query,
           params: generated.data.params,
         },
         ...previous,
       ]);
+      setFromId("");
+      setToId("");
+      setFromLabel("");
+      setToLabel("");
       setRelationshipType("");
       setRelationshipPropertiesInput("{}");
     } catch (error) {
@@ -246,7 +255,7 @@ export default function Home() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="from-id">
-                  from.id value
+                  From Node ID
                 </label>
                 <input
                   id="from-id"
@@ -259,7 +268,7 @@ export default function Home() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="to-id">
-                  to.id value
+                  To Node ID
                 </label>
                 <input
                   id="to-id"
@@ -268,6 +277,32 @@ export default function Home() {
                   onChange={(event) => setToId(event.target.value)}
                   placeholder="company-1"
                   required
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="from-label">
+                  from label (optional)
+                </label>
+                <input
+                  id="from-label"
+                  className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                  value={fromLabel}
+                  onChange={(event) => setFromLabel(event.target.value)}
+                  placeholder="Person"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="to-label">
+                  to label (optional)
+                </label>
+                <input
+                  id="to-label"
+                  className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                  value={toLabel}
+                  onChange={(event) => setToLabel(event.target.value)}
+                  placeholder="Company"
                 />
               </div>
             </div>

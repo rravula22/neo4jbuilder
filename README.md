@@ -34,7 +34,7 @@ npm run build
 ## API endpoints
 
 - `POST /api/nodes` - generate node Cypher from `{ label, properties }`
-- `POST /api/relationships` - generate relationship Cypher from `{ fromId, toId, type, properties }`
+- `POST /api/relationships` - generate relationship Cypher from `{ fromId, toId, fromLabel?, toLabel?, type, properties }`; optional labels add label constraints in the generated `MATCH` clause and IDs map to `from.id` / `to.id` predicates
 
 Example response shape:
 
