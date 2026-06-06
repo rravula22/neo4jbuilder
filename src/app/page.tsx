@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { DragEvent, FormEvent, useRef, useState } from "react";
 
 import { isGraphPropertyValue } from "@/lib/graph-validation";
 import type {
@@ -12,6 +12,15 @@ import type {
 } from "@/types/graph";
 
 type StatementKind = "node" | "relationship";
+type BuilderTarget =
+  | "nodeLabel"
+  | "nodeProperties"
+  | "fromId"
+  | "toId"
+  | "fromLabel"
+  | "toLabel"
+  | "relationshipType"
+  | "relationshipProperties";
 
 interface QueryHistoryEntry {
   id: number;
@@ -19,6 +28,62 @@ interface QueryHistoryEntry {
   query: string;
   params: Record<string, unknown>;
 }
+
+interface BuilderOption {
+  id: string;
+  kind: StatementKind;
+  label: string;
+  target: BuilderTarget;
+  value: string;
+}
+
+const BUILDER_OPTIONS: BuilderOption[] = [
+  { id: "node-label-person", kind: "node", label: "Node label: Person", target: "nodeLabel", value: "Person" },
+  {
+    id: "node-label-company",
+    kind: "node",
+    label: "Node label: Company",
+    target: "nodeLabel",
+    value: "Company",
+  },
+  {
+    id: "node-props-person",
+    kind: "node",
+    label: "Node properties: person",
+    target: "nodeProperties",
+    value: '{"name":"Alice","age":30}',
+  },
+  {
+    id: "rel-from-id",
+    kind: "relationship",
+    label: "From ID: person-1",
+    target: "fromId",
+    value: "person-1",
+  },
+  { id: "rel-to-id", kind: "relationship", label: "To ID: company-1", target: "toId", value: "company-1" },
+  {
+    id: "rel-from-label",
+    kind: "relationship",
+    label: "From label: Person",
+    target: "fromLabel",
+    value: "Person",
+  },
+  { id: "rel-to-label", kind: "relationship", label: "To label: Company", target: "toLabel", value: "Company" },
+  {
+    id: "rel-type-works-at",
+    kind: "relationship",
+    label: "Relationship type: WORKS_AT",
+    target: "relationshipType",
+    value: "WORKS_AT",
+  },
+  {
+    id: "rel-props",
+    kind: "relationship",
+    label: "Relationship properties",
+    target: "relationshipProperties",
+    value: '{"since":2020,"fullTime":true}',
+  },
+];
 
 function stringifyProperties(value: Record<string, unknown>): string {
   return JSON.stringify(value, null, 2);
@@ -81,6 +146,55 @@ export default function Home() {
   const [relationshipPropertiesInput, setRelationshipPropertiesInput] = useState("{}");
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
   const [isSubmittingRelationship, setIsSubmittingRelationship] = useState(false);
+
+  const nodeBuilderOptions = BUILDER_OPTIONS.filter((option) => option.kind === "node");
+  const relationshipBuilderOptions = BUILDER_OPTIONS.filter((option) => option.kind === "relationship");
+
+  function applyBuilderOption(option: BuilderOption) {
+    switch (option.target) {
+      case "nodeLabel":
+        setNodeLabel(option.value);
+        return;
+      case "nodeProperties":
+        setNodePropertiesInput(option.value);
+        return;
+      case "fromId":
+        setFromId(option.value);
+        return;
+      case "toId":
+        setToId(option.value);
+        return;
+      case "fromLabel":
+        setFromLabel(option.value);
+        return;
+      case "toLabel":
+        setToLabel(option.value);
+        return;
+      case "relationshipType":
+        setRelationshipType(option.value);
+        return;
+      case "relationshipProperties":
+        setRelationshipPropertiesInput(option.value);
+    }
+  }
+
+  function handleBuilderDragStart(event: DragEvent<HTMLButtonElement>, optionId: string) {
+    event.dataTransfer.setData("application/neo4jbuilder-option", optionId);
+    event.dataTransfer.effectAllowed = "copy";
+  }
+
+  function handleBuilderDrop(event: DragEvent<HTMLDivElement>, kind: StatementKind) {
+    event.preventDefault();
+    const optionId = event.dataTransfer.getData("application/neo4jbuilder-option");
+    if (!optionId) {
+      return;
+    }
+
+    const option = BUILDER_OPTIONS.find((candidate) => candidate.id === optionId && candidate.kind === kind);
+    if (option) {
+      applyBuilderOption(option);
+    }
+  }
 
   async function handleCreateNode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -213,6 +327,24 @@ export default function Home() {
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-xl font-medium">Generate Node Cypher</h2>
+          <div className="mt-4 rounded border-2 border-dashed border-slate-300 p-3 text-sm text-slate-700" data-testid="node-drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleBuilderDrop(event, "node")}>
+            Drop node builder options here
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {nodeBuilderOptions.map((option) => (
+              <button
+                className="rounded border border-slate-300 bg-slate-50 px-2 py-1 text-xs hover:bg-slate-100"
+                data-testid={`builder-option-${option.id}`}
+                draggable
+                key={option.id}
+                onClick={() => applyBuilderOption(option)}
+                onDragStart={(event) => handleBuilderDragStart(event, option.id)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <form className="mt-4 space-y-4" onSubmit={handleCreateNode}>
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="node-label">
@@ -251,6 +383,24 @@ export default function Home() {
 
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-xl font-medium">Generate Relationship Cypher</h2>
+          <div className="mt-4 rounded border-2 border-dashed border-slate-300 p-3 text-sm text-slate-700" data-testid="relationship-drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleBuilderDrop(event, "relationship")}>
+            Drop relationship builder options here
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {relationshipBuilderOptions.map((option) => (
+              <button
+                className="rounded border border-slate-300 bg-slate-50 px-2 py-1 text-xs hover:bg-slate-100"
+                data-testid={`builder-option-${option.id}`}
+                draggable
+                key={option.id}
+                onClick={() => applyBuilderOption(option)}
+                onDragStart={(event) => handleBuilderDragStart(event, option.id)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <form className="mt-4 space-y-4" onSubmit={handleCreateRelationship}>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
