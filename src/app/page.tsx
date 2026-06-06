@@ -1,19 +1,24 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 
 import { isGraphPropertyValue } from "@/lib/graph-validation";
 import type {
   CreateNodeRequest,
   CreateRelationshipRequest,
   ErrorResponse,
-  GraphNode,
+  GenerateCypherResponse,
   GraphProperties,
-  GraphRelationship,
 } from "@/types/graph";
 
-const DEFAULT_FROM_NODE_INDEX = 0;
-const DEFAULT_TO_NODE_INDEX = 1;
+type StatementKind = "node" | "relationship";
+
+interface QueryHistoryEntry {
+  id: number;
+  kind: StatementKind;
+  query: string;
+  params: Record<string, unknown>;
+}
 
 function stringifyProperties(value: Record<string, unknown>): string {
   return JSON.stringify(value, null, 2);
@@ -60,10 +65,7 @@ async function readErrorMessage(response: Response): Promise<string> {
 }
 
 export default function Home() {
-  const [nodes, setNodes] = useState<GraphNode[]>([]);
-  const [relationships, setRelationships] = useState<GraphRelationship[]>([]);
-  const [isLoadingNodes, setIsLoadingNodes] = useState(true);
-  const [isLoadingRelationships, setIsLoadingRelationships] = useState(true);
+  const [history, setHistory] = useState<QueryHistoryEntry[]>([]);
 
   const [nodeLabel, setNodeLabel] = useState("");
   const [nodePropertiesInput, setNodePropertiesInput] = useState("{}");
@@ -76,54 +78,6 @@ export default function Home() {
   const [relationshipPropertiesInput, setRelationshipPropertiesInput] = useState("{}");
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
   const [isSubmittingRelationship, setIsSubmittingRelationship] = useState(false);
-
-  const canCreateRelationship = useMemo(() => nodes.length >= 2, [nodes.length]);
-
-  const loadNodes = useCallback(async () => {
-    setIsLoadingNodes(true);
-    try {
-      const response = await fetch("/api/nodes", { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error(await readErrorMessage(response));
-      }
-
-      const payload = (await response.json()) as { data: GraphNode[] };
-      setNodes(payload.data);
-      const nodeIds = new Set(payload.data.map((node) => node.id));
-      setFromId((current) =>
-        current && nodeIds.has(current) ? current : payload.data[DEFAULT_FROM_NODE_INDEX]?.id || ""
-      );
-      setToId((current) => (current && nodeIds.has(current) ? current : payload.data[DEFAULT_TO_NODE_INDEX]?.id || ""));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load nodes";
-      setNodeError(message);
-    } finally {
-      setIsLoadingNodes(false);
-    }
-  }, []);
-
-  const loadRelationships = useCallback(async () => {
-    setIsLoadingRelationships(true);
-    try {
-      const response = await fetch("/api/relationships", { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error(await readErrorMessage(response));
-      }
-
-      const payload = (await response.json()) as { data: GraphRelationship[] };
-      setRelationships(payload.data);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to load relationships";
-      setRelationshipError(message);
-    } finally {
-      setIsLoadingRelationships(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadNodes();
-    void loadRelationships();
-  }, [loadNodes, loadRelationships]);
 
   async function handleCreateNode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,17 +114,20 @@ export default function Home() {
         throw new Error(await readErrorMessage(response));
       }
 
-      const created = (await response.json()) as { data: GraphNode };
-      setNodes((previous) => [...previous, created.data]);
+      const generated = (await response.json()) as GenerateCypherResponse;
+      setHistory((previous) => [
+        {
+          id: Date.now(),
+          kind: "node",
+          query: generated.data.query,
+          params: generated.data.params,
+        },
+        ...previous,
+      ]);
       setNodeLabel("");
       setNodePropertiesInput("{}");
-      if (!fromId) {
-        setFromId(created.data.id);
-      } else if (!toId) {
-        setToId(created.data.id);
-      }
     } catch (error) {
-      setNodeError(error instanceof Error ? error.message : "Failed to create node");
+      setNodeError(error instanceof Error ? error.message : "Failed to generate node Cypher");
     } finally {
       setIsSubmittingNode(false);
     }
@@ -180,7 +137,7 @@ export default function Home() {
     event.preventDefault();
     setRelationshipError(null);
 
-    if (!fromId || !toId) {
+    if (!fromId.trim() || !toId.trim()) {
       setRelationshipError("fromId and toId are required");
       return;
     }
@@ -202,8 +159,8 @@ export default function Home() {
     setIsSubmittingRelationship(true);
     try {
       const payload: CreateRelationshipRequest = {
-        fromId,
-        toId,
+        fromId: fromId.trim(),
+        toId: toId.trim(),
         type: trimmedType,
         properties,
       };
@@ -218,12 +175,20 @@ export default function Home() {
         throw new Error(await readErrorMessage(response));
       }
 
-      const created = (await response.json()) as { data: GraphRelationship };
-      setRelationships((previous) => [...previous, created.data]);
+      const generated = (await response.json()) as GenerateCypherResponse;
+      setHistory((previous) => [
+        {
+          id: Date.now(),
+          kind: "relationship",
+          query: generated.data.query,
+          params: generated.data.params,
+        },
+        ...previous,
+      ]);
       setRelationshipType("");
       setRelationshipPropertiesInput("{}");
     } catch (error) {
-      setRelationshipError(error instanceof Error ? error.message : "Failed to create relationship");
+      setRelationshipError(error instanceof Error ? error.message : "Failed to generate relationship Cypher");
     } finally {
       setIsSubmittingRelationship(false);
     }
@@ -231,14 +196,14 @@ export default function Home() {
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl p-6 md:p-10">
-      <h1 className="text-3xl font-semibold">Neo4j Builder MVP</h1>
+      <h1 className="text-3xl font-semibold">Neo4j Cypher Generator</h1>
       <p className="mt-2 text-sm text-slate-600">
-        Create and list nodes first, then create and list relationships between existing nodes.
+        Generate Cypher statements for nodes and relationships without writing anything to a Neo4j database.
       </p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-xl font-medium">Create Node</h2>
+          <h2 className="text-xl font-medium">Generate Node Cypher</h2>
           <form className="mt-4 space-y-4" onSubmit={handleCreateNode}>
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="node-label">
@@ -270,69 +235,40 @@ export default function Home() {
               disabled={isSubmittingNode}
               type="submit"
             >
-              {isSubmittingNode ? "Creating..." : "Create Node"}
+              {isSubmittingNode ? "Generating..." : "Generate Node Query"}
             </button>
           </form>
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-xl font-medium">Nodes</h2>
-          {isLoadingNodes ? <p className="mt-4 text-sm text-slate-600">Loading nodes...</p> : null}
-          {!isLoadingNodes && nodes.length === 0 ? <p className="mt-4 text-sm text-slate-600">No nodes yet.</p> : null}
-          <ul className="mt-4 space-y-2 text-sm">
-            {nodes.map((node) => (
-              <li className="rounded border border-slate-200 p-3" key={node.id}>
-                <div className="font-medium">{node.labels.join(":") || "(unlabeled)"}</div>
-                <div className="mt-1 text-xs text-slate-500">id: {node.id}</div>
-                <pre className="mt-2 overflow-auto rounded bg-slate-50 p-2 text-xs">
-                  {stringifyProperties(node.properties)}
-                </pre>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-xl font-medium">Create Relationship</h2>
+          <h2 className="text-xl font-medium">Generate Relationship Cypher</h2>
           <form className="mt-4 space-y-4" onSubmit={handleCreateRelationship}>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="from-id">
-                  From Node
+                  from.id value
                 </label>
-                <select
+                <input
                   id="from-id"
                   className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
                   value={fromId}
                   onChange={(event) => setFromId(event.target.value)}
-                  disabled={!canCreateRelationship}
-                >
-                  <option value="">Select node</option>
-                  {nodes.map((node) => (
-                    <option key={`from-${node.id}`} value={node.id}>
-                      {node.labels.join(":") || node.id} ({node.id})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="person-1"
+                  required
+                />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="to-id">
-                  To Node
+                  to.id value
                 </label>
-                <select
+                <input
                   id="to-id"
                   className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
                   value={toId}
                   onChange={(event) => setToId(event.target.value)}
-                  disabled={!canCreateRelationship}
-                >
-                  <option value="">Select node</option>
-                  {nodes.map((node) => (
-                    <option key={`to-${node.id}`} value={node.id}>
-                      {node.labels.join(":") || node.id} ({node.id})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="company-1"
+                  required
+                />
               </div>
             </div>
             <div>
@@ -344,7 +280,7 @@ export default function Home() {
                 className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
                 value={relationshipType}
                 onChange={(event) => setRelationshipType(event.target.value)}
-                placeholder="KNOWS"
+                placeholder="WORKS_AT"
                 required
               />
             </div>
@@ -359,36 +295,27 @@ export default function Home() {
                 onChange={(event) => setRelationshipPropertiesInput(event.target.value)}
               />
             </div>
-            {!canCreateRelationship ? (
-              <p className="text-sm text-slate-600">Create at least 2 nodes to add a relationship.</p>
-            ) : null}
             {relationshipError ? <p className="text-sm text-red-600">{relationshipError}</p> : null}
             <button
               className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-              disabled={!canCreateRelationship || isSubmittingRelationship}
+              disabled={isSubmittingRelationship}
               type="submit"
             >
-              {isSubmittingRelationship ? "Creating..." : "Create Relationship"}
+              {isSubmittingRelationship ? "Generating..." : "Generate Relationship Query"}
             </button>
           </form>
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-xl font-medium">Relationships</h2>
-          {isLoadingRelationships ? <p className="mt-4 text-sm text-slate-600">Loading relationships...</p> : null}
-          {!isLoadingRelationships && relationships.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-600">No relationships yet.</p>
-          ) : null}
-          <ul className="mt-4 space-y-2 text-sm">
-            {relationships.map((relationship) => (
-              <li className="rounded border border-slate-200 p-3" key={relationship.id}>
-                <div className="font-medium">{relationship.type}</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {relationship.fromId} → {relationship.toId}
-                </div>
-                <pre className="mt-2 overflow-auto rounded bg-slate-50 p-2 text-xs">
-                  {stringifyProperties(relationship.properties)}
-                </pre>
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
+          <h2 className="text-xl font-medium">Generated Cypher</h2>
+          {history.length === 0 ? <p className="mt-4 text-sm text-slate-600">No generated queries yet.</p> : null}
+          <ul className="mt-4 space-y-3 text-sm">
+            {history.map((entry) => (
+              <li className="rounded border border-slate-200 p-3" key={entry.id}>
+                <div className="font-medium capitalize">{entry.kind} query</div>
+                <pre className="mt-2 overflow-auto rounded bg-slate-50 p-2 text-xs">{entry.query}</pre>
+                <div className="mt-2 text-xs font-medium text-slate-600">params</div>
+                <pre className="mt-1 overflow-auto rounded bg-slate-50 p-2 text-xs">{stringifyProperties(entry.params)}</pre>
               </li>
             ))}
           </ul>

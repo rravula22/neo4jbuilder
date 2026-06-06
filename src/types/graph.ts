@@ -2,20 +2,6 @@ export type GraphPrimitive = string | number | boolean | null;
 export type GraphPropertyValue = GraphPrimitive | GraphPrimitive[];
 export type GraphProperties = Record<string, GraphPropertyValue>;
 
-export interface GraphNode {
-  id: string;
-  labels: string[];
-  properties: GraphProperties;
-}
-
-export interface GraphRelationship {
-  id: string;
-  type: string;
-  fromId: string;
-  toId: string;
-  properties: GraphProperties;
-}
-
 export interface CreateNodeRequest {
   label: string;
   properties?: GraphProperties;
@@ -26,6 +12,15 @@ export interface CreateRelationshipRequest {
   toId: string;
   type: string;
   properties?: GraphProperties;
+}
+
+export interface GeneratedCypherStatement {
+  query: string;
+  params: Record<string, unknown>;
+}
+
+export interface GenerateCypherResponse {
+  data: GeneratedCypherStatement;
 }
 
 export interface ErrorResponse {

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { withReadSession, withWriteSession } from "@/lib/neo4j";
 import { ApiError, isPlainObject, jsonError, parseCypherIdentifier, parseProperties, toCypherIdentifier } from "@/lib/graph-api";
-import type { CreateRelationshipRequest, GraphProperties, GraphRelationship } from "@/types/graph";
+import type { CreateRelationshipRequest, GenerateCypherResponse } from "@/types/graph";
 
 export const runtime = "nodejs";
 
@@ -32,29 +31,8 @@ function parseCreateRelationshipPayload(value: unknown): CreateRelationshipReque
   };
 }
 
-function mapRelationship(record: { get: (key: string) => unknown }): GraphRelationship {
-  return {
-    id: String(record.get("id")),
-    type: String(record.get("type")),
-    fromId: String(record.get("fromId")),
-    toId: String(record.get("toId")),
-    properties: (record.get("properties") as GraphProperties) ?? {},
-  };
-}
-
 export async function GET() {
-  try {
-    const relationships = await withReadSession(async (session) => {
-      const result = await session.run(
-        "MATCH (from)-[r]->(to) RETURN elementId(r) AS id, type(r) AS type, elementId(from) AS fromId, elementId(to) AS toId, properties(r) AS properties ORDER BY id"
-      );
-      return result.records.map(mapRelationship);
-    });
-
-    return NextResponse.json({ data: relationships });
-  } catch (error) {
-    return jsonError(error);
-  }
+  return jsonError(new ApiError(405, "METHOD_NOT_ALLOWED", "Use POST to generate relationship Cypher"));
 }
 
 export async function POST(request: NextRequest) {
@@ -69,25 +47,14 @@ export async function POST(request: NextRequest) {
     const { fromId, toId, type, properties } = parseCreateRelationshipPayload(payload);
     const safeType = toCypherIdentifier(type);
 
-    const relationship = await withWriteSession(async (session) => {
-      const result = await session.run(
-        `MATCH (from), (to)
-         WHERE elementId(from) = $fromId AND elementId(to) = $toId
-         CREATE (from)-[r:${safeType}]->(to)
-         SET r += $properties
-         RETURN elementId(r) AS id, type(r) AS type, elementId(from) AS fromId, elementId(to) AS toId, properties(r) AS properties`,
-        { fromId, toId, properties }
-      );
+    const response: GenerateCypherResponse = {
+      data: {
+        query: `MATCH (from), (to) WHERE from.id = $fromId AND to.id = $toId CREATE (from)-[r:${safeType}]->(to) SET r += $properties RETURN r`,
+        params: { fromId, toId, properties },
+      },
+    };
 
-      const [record] = result.records;
-      if (!record) {
-        throw new ApiError(404, "NODE_NOT_FOUND", "Could not find nodes for the provided fromId/toId");
-      }
-
-      return mapRelationship(record);
-    });
-
-    return NextResponse.json({ data: relationship }, { status: 201 });
+    return NextResponse.json(response, { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

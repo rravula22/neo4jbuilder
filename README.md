@@ -1,21 +1,14 @@
 # Neo4j Builder
 
-Neo4j Builder is a minimal Next.js app for creating and listing Neo4j nodes and relationships from a browser UI.
+Neo4j Builder is a minimal Next.js app for generating Cypher queries for nodes and relationships.
+
+It does **not** execute writes against Neo4j. The app returns generated query text and parameters only.
 
 ## Prerequisites
 
 - Node.js 18+
-- A running Neo4j database
 
 ## Setup
-
-Create `.env.local` in the project root with:
-
-```bash
-NEO4J_URI=neo4j://localhost:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=password
-```
 
 Install dependencies:
 
@@ -40,12 +33,25 @@ npm run build
 
 ## API endpoints
 
-- `GET /api/nodes` - list nodes
-- `POST /api/nodes` - create node with `{ label, properties }`
-- `GET /api/relationships` - list relationships
-- `POST /api/relationships` - create relationship with `{ fromId, toId, type, properties }`
+- `POST /api/nodes` - generate node Cypher from `{ label, properties }`
+- `POST /api/relationships` - generate relationship Cypher from `{ fromId, toId, type, properties }`
 
-Both POST endpoints validate inputs strictly and return consistent JSON errors in the shape:
+Example response shape:
+
+```json
+{
+  "data": {
+    "query": "CREATE (n:`Person`) SET n += $properties RETURN n",
+    "params": {
+      "properties": {
+        "name": "Alice"
+      }
+    }
+  }
+}
+```
+
+Both endpoints validate inputs strictly and return consistent JSON errors in the shape:
 
 ```json
 {
