@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Neo4j Builder",
-  description: "Build and inspect Neo4j nodes and relationships from a simple web UI",
+  title: "Neo4j Cypher Generator",
+  description: "Generate Cypher queries for nodes and relationships from a simple web UI",
 };
 
 export default function RootLayout({
