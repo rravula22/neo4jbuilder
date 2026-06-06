@@ -356,7 +356,6 @@ export default function Home() {
                 value={nodeLabel}
                 onChange={(event) => setNodeLabel(event.target.value)}
                 placeholder="Person"
-                required
               />
             </div>
             <div>
@@ -413,8 +412,7 @@ export default function Home() {
                   value={fromId}
                   onChange={(event) => setFromId(event.target.value)}
                   placeholder="person-1"
-                  required
-                />
+                  />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="to-id">
@@ -426,14 +424,13 @@ export default function Home() {
                   value={toId}
                   onChange={(event) => setToId(event.target.value)}
                   placeholder="company-1"
-                  required
-                />
+                  />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="from-label">
-                  from label (optional)
+                  From label (optional)
                 </label>
                 <input
                   id="from-label"
@@ -445,7 +442,7 @@ export default function Home() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium" htmlFor="to-label">
-                  to label (optional)
+                  To label (optional)
                 </label>
                 <input
                   id="to-label"
@@ -466,7 +463,6 @@ export default function Home() {
                 value={relationshipType}
                 onChange={(event) => setRelationshipType(event.target.value)}
                 placeholder="WORKS_AT"
-                required
               />
             </div>
             <div>
